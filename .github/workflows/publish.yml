@@ -1,30 +1,28 @@
-name: Publish Quarto Websites
+name: Build and Deploy Copenhagen ICES
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install Quarto
+      - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          quarto-version: '1.3.308'  # or your installed version
 
-      - name: Render copenhagen_ices
+      - name: Render Copenhagen ICES website
         working-directory: workshop_materials/copenhagen_ices
-        run: quarto render
-
-#      - name: Render BES_workshop
-#        working-directory: workshop_materials/BES_workshop
-#        run: quarto render
+        run: quarto render --to website
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./workshop_materials
+          publish_dir: ./workshop_materials/copenhagen_ices/_site
