@@ -30,10 +30,10 @@ website:
     left:
     - href: index.qmd
       text: Home
-    - href: about.qmd
-      text: Slides
-    - href: about_practical.qmd
-      text: Practicals  
+    # - href: about.qmd
+    #   text: Slides
+    # - href: about_practical.qmd
+    #   text: Practicals  
   sidebar:
     style: docked
     search: true
