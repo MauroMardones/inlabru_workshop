@@ -123,9 +123,11 @@ No knowledge of `R-INLA` or `inlabru` is required.
 
 Participants are required to follow the below steps ahead of the first day of the workshop:
 
-1.  Install [R-INLA](https://www.r-inla.org/download-install)
+1. Check your `R` version, it should be at least 4.3.*
 
-2.  Install `inlabru` (available from CRAN)
+2.  Install [R-INLA](https://www.r-inla.org/download-install)
+
+3.  Install `inlabru` (available from CRAN)
 
 ```{r}
 #| eval: false
@@ -140,8 +142,8 @@ options(repos = c(
 install.packages("inlabru")
 ```
 
-3.  Make sure you have the latest `R-INLA`, `inlabru` and `R` versions installed.
-4.  Install the following libraries:
+4.  Make sure you have the latest `R-INLA`, `inlabru` and `R` versions installed.
+5.  Install the following libraries:
 
 ```{r}
 #| results: hide
