@@ -1,0 +1,7 @@
+# Quarto build output
+
+
+
+/.quarto/
+
+**/*.quarto_ipynb

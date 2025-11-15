@@ -1,0 +1,118 @@
+project:
+  type: website
+  output-dir: docs
+  render:
+    - index.qmd
+    - day1_practical.qmd
+    - day1_practical_2.qmd
+    - day2_practical_3.qmd
+    - day2_practical_4.qmd
+    - day3_practical_5.qmd
+    - day4_practical_6.qmd
+    - day4_practical_7.qmd
+    - day5_practical_8.qmd
+    - day5_practical_9.qmd
+    - slides/slides_2.qmd
+    - slides/slides_3.qmd
+    - slides/slides_4.qmd
+    - slides/slides_5.qmd
+    - slides/slides_9.qmd
+    - slides/slides_10.qmd
+    - slides/slides_12.qmd
+    - slides/slides_13.qmd
+    # - about.qmd
+    # - about_practical.qmd
+
+website:
+  title: inlabru workshop
+  navbar:
+    logo: INLA_logo.png
+    left:
+    - href: index.qmd
+      text: Home
+    - href: about.qmd
+      text: Slides
+    - href: about_practical.qmd
+      text: Practicals  
+  sidebar:
+    style: docked
+    search: true
+    contents:
+      - href: index.html
+        text: Home
+      - section: "Slides"
+        contents:
+          - href: slides/slides_2.html
+            text: Lecture 1
+          - href: slides/slides_3.html
+            text: Lecture 2
+          - href: slides/slides_4.html
+            text: Lecture 3
+        
+          - href: Slides_Janine_pdf/slides_5_inlabru.pdf
+            text: Lecture 5 (PDF)
+            target: _blank     # optional: open in new tab  
+          
+          - href: Slides_Janine_pdf/slides_6_inlabru.pdf
+            text: Lecture 6 (PDF)
+            target: _blank     # optional: open in new tab  
+          
+          - href: Slides_Janine_pdf/slides_7_inlabru.pdf
+            text: Lecture 7 (PDF)
+            target: _blank     # optional: open in new tab  
+          
+          - href: Slides_Janine_pdf/slides_8_inlabru.pdf
+            text: Lecture 8 (PDF)
+            target: _blank     # optional: open in new tab  
+            
+            
+          - href: slides/slides_9.html
+            text: Lecture 9
+          - href: slides/slides_10.html
+            text: Lecture 10
+          - href: slides/slides_12.html
+            text: Lecture 12
+          - href: slides/slides_13.html
+            text: Lecture 13
+
+      - section: "Practicals"
+        contents:
+          - href: https://ecol-stats.github.io/inlabru_workshop/copenhagen_ices/docs/day1_practical.html
+            text: Practical 1
+          - href: https://ecol-stats.github.io/inlabru_workshop/copenhagen_ices/docs/day1_practical_2.html
+            text: Practical 2
+          - href: https://ecol-stats.github.io/inlabru_workshop/copenhagen_ices/docs/day2_practical_3.html
+            text: Practical 3
+          - href: https://ecol-stats.github.io/inlabru_workshop/copenhagen_ices/docs/day2_practical_4.html
+            text: Practical 4
+          - href: https://ecol-stats.github.io/inlabru_workshop/copenhagen_ices/docs/day3_practical_5.html
+            text: Practical 5
+          - href: https://ecol-stats.github.io/inlabru_workshop/copenhagen_ices/docs/day4_practical_6.html
+            text: Practical 6
+          - text: Practical 7
+            href: https://ecol-stats.github.io/inlabru_workshop/copenhagen_ices/docs/day4_practical_7.html
+          - text: Practical 8
+            href: https://ecol-stats.github.io/inlabru_workshop/copenhagen_ices/docs/day5_practical_8.html
+            external: true
+          - text: Practical 9
+            href: https://ecol-stats.github.io/inlabru_workshop/copenhagen_ices/docs/day5_practical_9.html
+            external: true
+  page-navigation: true
+
+format:
+  html:
+    theme:
+      light: flatly
+      dark: darkly
+    css:
+      - styles.css
+      - include/webex.css
+    toc: true
+    include-after-body: include/webex.js
+  revealjs:
+    footer: '<a href="/index.html" style="color:#ccc;">Home</a>'
+
+editor: visual
+
+execute:
+  freeze: false
