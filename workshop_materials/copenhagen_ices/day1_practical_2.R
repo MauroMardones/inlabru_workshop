@@ -70,7 +70,7 @@ lik2 =  bru_obs(formula = y ~.,
                 data = df,
                 control.family = list(hyper = prec.tau))
 
-fit.lm2 = bru(cmp2, lik2) 
+fit.lm2 = bru(cmp, lik2) 
 
 
 
@@ -95,7 +95,8 @@ library(dplyr)
 library(INLA)
 library(ggplot2)
 library(patchwork)
-library(inlabru)     
+library(inlabru)  
+library(here)
 
 
 
@@ -119,10 +120,15 @@ library(inlabru)
 #| fig-align: center
 #| warning: false
 #| message: false
+# ubica con "here"
+list.files(here("datasets"))
 
-PygmyWFBC <- read.csv("datasets/PygmyWFBC.csv")
+PygmyWFBC <- read.csv(here("workshop_materials","copenhagen_ices",
+                           "datasets","PygmyWFBC.csv"))
 
-ggplot(PygmyWFBC, aes(x = factor(net_no), y = wt,fill = sex)) + 
+ggplot(PygmyWFBC, aes(x = factor(net_no), 
+                      y = wt,
+                      fill = sex)) + 
   geom_boxplot() + 
   labs(y="Weight (g)",x = "Net no.")
 

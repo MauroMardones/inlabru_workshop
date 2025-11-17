@@ -28,11 +28,13 @@ y = beta[1] + beta[2] * x + rnorm(n, sd = sd_error)
 df = data.frame(y = y, x = x)  
 
 
+cmp =  ~ -1 + beta_0(1) + beta_1(x, model = "linear")
 
+eta = y ~ beta_0 + beta_1
 
-
-
-
+lik =  bru_obs(formula = eta,
+               family = "gaussian",
+               data = df)
 
 
 
@@ -73,7 +75,9 @@ pred %>% ggplot() +
   geom_line(aes(x,mean)) +
   geom_line(aes(x, q0.025), linetype = "dashed")+
   geom_line(aes(x, q0.975), linetype = "dashed")+
-  xlab("Covariate") + ylab("Observations")
+  xlab("Covariate") + 
+  ylab("Observations")+
+  
 
 
 
@@ -116,12 +120,12 @@ ggplot(df) +
 cmp =  ~ -1 + beta_0(1) + beta_1(x, model = "linear") +
   u(j, model = "iid")
 
-
 ## ----define_likelihood_lmm----------------------------------------------------
 # Construct likelihood
 lik =  bru_obs(formula = y ~.,
             family = "gaussian",
             data = df)
+
 
 
 ## -----------------------------------------------------------------------------
@@ -148,10 +152,15 @@ pred = predict(fit, pred_data, formula = ~ beta_0 + beta_1 + u)
 pred %>%
   ggplot(aes(x=x,y=mean,color=factor(j)))+
   geom_line()+
-  geom_ribbon(aes(x,ymin = q0.025, ymax= q0.975,fill=factor(j)), alpha = 0.5) + 
+  geom_ribbon(aes(x,
+                  ymin = q0.025, 
+                  ymax= q0.975,fill=factor(j)), 
+              alpha = 0.5) + 
   geom_point(data=df,aes(x=x,y=y,colour=factor(j)))+
-  facet_wrap(~j)
-
+  scale_color_viridis_d(option = "D")+
+  scale_fill_viridis_d(option = "D")+
+  facet_wrap(~j)+
+  theme_bw()
 
 
 
@@ -217,12 +226,20 @@ pred_glm <- predict(fit_glm, new_data, pred_fml)
 pred_glm %>% ggplot() + 
   geom_point(aes(x,y), alpha = 0.3) +
   geom_line(aes(x,mean)) +
-    geom_ribbon(aes(x = x, ymax = q0.975, ymin = q0.025),fill = "tomato", alpha = 0.3)+
+    geom_ribbon(aes(x = x, ymax = q0.975, 
+                    ymin = q0.025),
+                fill = "tomato", 
+                alpha = 0.3)+
   geom_line(aes(x, q0.025), linetype = "dashed")+
   geom_line(aes(x, q0.975), linetype = "dashed")+
-  xlab("Covariate") + ylab("Observations (counts)")
+  xlab("Covariate") +
+  ylab("Observations (counts)")+
+  theme_bw()
 
 
+###
+
+# Suppose a binary response such that
 
 
 ## -----------------------------------------------------------------------------
@@ -235,4 +252,36 @@ psi = plogis(alpha[1] + alpha[2] * w)
 y = rbinom(n = n, size = 1, prob =  psi) # set size = 1 to draw binary observations
 df_logis = data.frame(y = y, w = w)  
 
+# haz el odelo bernulliano con inlabru
 
+
+# Model components
+cmp_logis =  ~ -1 + alpha_0(1) + alpha_1(w, model = "linear")
+# Model likelihood
+lik_logis =  bru_obs(formula = y ~.,
+                     family = "binomial",
+                     data = df_logis)
+# fit the model
+fit_logis <- bru(cmp_logis,lik_logis)
+
+# Define data for prediction
+new_data = data.frame(w = c(df_logis$w, runif(10)),
+                      y = c(df_logis$y, rep(NA,10)))
+# Define predictor formula
+pred_fml <- ~ plogis(alpha_0 + alpha_1)
+
+# Generate predictions
+pred_logis <- predict(fit_logis, new_data, pred_fml)
+
+# Plot predictions
+pred_logis %>% ggplot() + 
+  geom_point(aes(w,y), alpha = 0.3) +
+  geom_line(aes(w,mean)) +
+  geom_ribbon(aes(x = w, 
+                  ymax = q0.975, 
+                  ymin = q0.025),
+              fill = "tomato",
+              alpha = 0.3)+
+  xlab("Covariate") + 
+  ylab("Observations")+
+  theme_bw()
