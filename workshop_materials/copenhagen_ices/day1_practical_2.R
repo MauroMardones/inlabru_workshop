@@ -119,7 +119,7 @@ pred3 <- predcmp3 %>%
   geom_point(data=df,aes(x=x,y=y))+
   theme_bw()
 
-ggarrange(pred1, pred2, pred3,
+egg::ggarrange(pred1, pred2, pred3,
                           ncol = 3, nrow = 1)
 #inla.priors.used(lm.fit2)
 
