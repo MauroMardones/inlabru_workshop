@@ -1,8 +1,35 @@
+
 ## ----child="practicals/Ar1_ex.qmd"--------------------------------------------
 
+# Practical 3
+# Aim of this practical:
+#   
+#   Fit temporal models for discrete time points using inlabru
+# Forecasting for future observations
+# Set penalized complexity (PC) priors
+# Fit temporal models to non-Gaussian data
+# we are going to learn:
+#   
+#   How to fit autoregressive and random walk models for time series data
+# How to set PC priors in inlabru
+# Forecast future observations using the posterior predictive density
+
 ## -----------------------------------------------------------------------------
-#| warning: false
-#| message: false
+
+# AR(1) models in inlabru
+# 
+# In this exercise we will:
+#   
+#   Simulate a time series with autocorrelated errors.
+# 
+# Fit an AR(1) process with inlabru
+# 
+# Visualize model predictions.
+# 
+# Forecasting for future observations
+# 
+# Start by loading useful libraries:
+
 library(tidyverse)
 library(INLA)
 library(ggplot2)
@@ -29,11 +56,6 @@ ts_dat <- data.frame(y =y , x= 1:100)
 
 
 
-## -----------------------------------------------------------------------------
-#| echo: false
-#| fig-align: center
-#| fig-width: 4
-#| fig-height: 4
 
 ggplot(ts_dat,aes(y=y,x=x))+geom_line()
 
@@ -333,5 +355,74 @@ ggplot(data=pTokyo , aes(x= time, y= y) ) +
   geom_ribbon(aes( ymin = q0.025*2, 
                              ymax = q0.975*2), alpha = 0.5)
   
+
+
+
+# -----------------------------------------------------------------------------
+# Excersice of Lecture 3
+
+cmp= ~ -1 + Intercept(1) + time(time, model ="rw2")
+formula = y ~ Intercept + time
+lik = bru_obs(formula = formula,
+              data = Tokyo,
+              Ntrials = n,
+              family = "binomial")
+fit = bru(cmp, lik)
+preds1 = predict(object = fit, newdata = Tokyo, ~ time)
+preds2 = predict(object = fit, newdata = Tokyo, ~ Intercept + time)
+inv_logit = function(x) ((1 + exp(-x))^(-1))
+preds3 = predict(object = fit, newdata = Tokyo, ~ inv_logit(Intercept + time))
+
+inv_logit = function(x) ((1 + exp(-x))^(-1))
+preds = predict(object = fit, newdata = Tokyo, 
+                ~ data.frame(time_eff = time,
+                             lin_pred = Intercept + time,
+                             probs = inv_logit(Intercept + time)),
+                n.samples = 1000
+)
+# preds is then a list                
+round(preds$probs[1:3,],3)
+
+preds$probs %>% ggplot() + geom_line(aes(time, mean)) +
+  geom_ribbon(aes(time, ymin = q0.025, ymax = q0.975), alpha = 0.5)
+
+
+
+samples = generate(object = fit, newdata = Tokyo, 
+                   ~ data.frame(time_eff = time,
+                                lin_pred = Intercept + time,
+                                probs = inv_logit(Intercept + time)),
+                   n.samples = 20
+)
+# samples is now a list of length 20 (n.samples) each element of the list looks like:
+
+samples[[1]][1:3,]
+
+data.frame(time = Tokyo$time, sapply(samples, function(x) x[,1])) %>%
+  pivot_longer(-time) %>%
+  ggplot() + geom_line(aes(time, value, group = name, color = factor(name))) +
+  theme(legend.position = "none")
+
+
+# execsice "mtcars"
+df <- mtcars
+# transformar mgp a factor
+df$gear <- as.factor(df$gear)
+m1 = lm(mpg ~ gear, data = df)
+m1$coefficients
+
+df$gear_id = as.numeric(df$gear) # inlabru needs values like 1,2,3 for random effects
+
+# -----------------------------------------------------------------------------
+#How do we do this in inlabru?
+  
+# Option 2: fixed effect are just random effects with fixed precision
+cmp2 = ~ -1 +  gear_effect(gear_id, model = "iid", fixed = T,initial = -6)
+# or: cmp2 = ~ Intercept(1) +  gear_effect(gear_id, model = "iid", fixed = T,initial = -6, constr = T)
+lik2 = bru_obs(formula = mpg ~.,
+               data = df)
+fit2 = bru(cmp2, lik2)
+fit2$summary.random$gear_effect$mean
+
 
 

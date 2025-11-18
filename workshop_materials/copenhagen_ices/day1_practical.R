@@ -73,8 +73,10 @@ pred = predict(fit.lm, new_data, ~ beta_0 + beta_1,
 pred %>% ggplot() + 
   geom_point(aes(x,y), alpha = 0.3) +
   geom_line(aes(x,mean)) +
-  geom_line(aes(x, q0.025), linetype = "dashed")+
-  geom_line(aes(x, q0.975), linetype = "dashed")+
+  geom_line(aes(x, q0.025), 
+            linetype = "dashed")+
+  geom_line(aes(x, q0.975), 
+            linetype = "dashed")+
   xlab("Covariate") + 
   ylab("Observations")+
   
