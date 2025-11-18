@@ -44,8 +44,8 @@ phi = 0.8
 tau_u = 10
 marg.prec = tau_u * (1-phi^2) # ar1 in INLA is parametrized as marginal variance
 u_t =  as.vector(arima.sim(list(order = c(1,0,0), ar = phi), 
-                          n = 100,
-                          sd=sqrt(1/tau_u)))
+                           n = 100,
+                           sd=sqrt(1/tau_u)))
 a = 1
 tau_e = 5
 epsilon_t = rnorm(100, sd = sqrt(1/tau_e))
@@ -57,10 +57,18 @@ ts_dat <- data.frame(y =y , x= 1:100)
 
 
 
-ggplot(ts_dat,aes(y=y,x=x))+geom_line()
+ggplot(ts_dat,aes(y=y,x=x))+
+  geom_line()+
+  geom_smooth(method='loess',span=0.1)+
+  theme_bw()
 
 
-
+# Fitting an AR(1) model with inlabru
+# Model components
+# 
+# First, we define the model components, notice that 
+# the latent field is defined by two components: 
+#   the intercept  and the autoregressive random effects :
 ## -----------------------------------------------------------------------------
 # Model components
 cmp =  ~ -1 + alpha(1) + ut(x,model = "ar1")
@@ -93,14 +101,22 @@ data.frame(
 ## -----------------------------------------------------------------------------
 pred_ar1 = predict(fit.ar1, ts_dat, ~ alpha + ut)
 
-ggplot(pred_ar1,aes(y=mean,x=x))+
+p0 <- ggplot(pred_ar1,aes(y=mean,x=x))+
   geom_line()+
-    geom_ribbon(aes(x = x, y = mean, ymin = q0.025, ymax = q0.975),
-                alpha = 0.5) +
-  geom_point(aes(y=y,x=x))
+    geom_ribbon(aes(x = x, 
+                    y = mean, 
+                    ymin = q0.025, 
+                    ymax = q0.975),
+                alpha = 0.5,
+                col="tomato",
+                fill="tomato") +
+  geom_point(aes(y=y,x=x))+
+  theme_bw()
 
 
-
+# Forecasting future observations
+ # Now, we will extend the previous model to forecast future observations.
+ # using the posterior predictive distribution.
 ## -----------------------------------------------------------------------------
 ts.forecast <- rbind(ts_dat, 
   data.frame(y = rep(NA, 50), x = 101:150))
@@ -108,13 +124,16 @@ ts.forecast <- rbind(ts_dat,
 
 
 ## -----------------------------------------------------------------------------
-
+# Model components
+ #  alpha() y ut() siguen igual
 cmp =  ~ -1 + alpha(1) + ut(x,model = "ar1")
 
+ # -----------------------------------------------------------------------------
+ # Model formula
 pred_lik =  bru_obs(formula = y ~.,
             family = "gaussian",
             data = ts.forecast)
-
+# fit the model
 fit.forecast = bru(cmp, pred_lik)
 
 
@@ -125,17 +144,60 @@ pred_forecast = predict(fit.forecast, ts.forecast, ~ alpha + ut)
 
 p1= ggplot(pred_forecast,aes(y=mean,x=x))+
   geom_line()+
-    geom_ribbon(aes(x = x, y = mean, ymin = q0.025, ymax = q0.975),
-                alpha = 0.5) +
-  geom_point(data=ts_dat, aes(y=y,x=x))
+    geom_ribbon(aes(x = x, y = mean, 
+                    ymin = q0.025, 
+                    ymax = q0.975),
+                alpha = 0.5,
+                col="lightblue",
+                fill="lightblue") +
+  geom_point(data=ts_dat, 
+             aes(y=y,x=x))+
+  theme_bw()
 
 
+# now with RW1
+
+## -----------------------------------------------------------------------------
+# Model components
+#  alpha() y ut() siguen igual
+cmprw =  ~ -1 + alpha(1) + ut(x,model = "rw1")
+
+# -----------------------------------------------------------------------------
+# Model formula
+pred_lik =  bru_obs(formula = y ~.,
+                    family = "gaussian",
+                    data = ts.forecast)
+# fit the model
+fit.forecast = bru(cmprw, pred_lik)
+
+
+## -----------------------------------------------------------------------------
+## model predictions
+
+## -----------------------------------------------------------------------------
+pred_forecast = predict(fit.forecast, ts.forecast, ~ alpha + ut)
+
+p2= ggplot(pred_forecast,aes(y=mean,x=x))+
+  geom_line()+
+  geom_ribbon(aes(x = x, y = mean, 
+                  ymin = q0.025, 
+                  ymax = q0.975),
+              alpha = 0.5,
+              col="red",
+              fill="red") +
+  geom_point(data=ts_dat, 
+             aes(y=y,x=x))+
+  theme_bw()
+
+# Plot 
+egg::ggarrange(p0 + ggtitle("AR1 model"),
+                p1 + ggtitle("AR1 Forecast"),
+                p2 + ggtitle("RW1 Forecast"),
+                ncol=1)
 
 ## ----child="practicals/Ar1_Rw1_ex.qmd"----------------------------------------
 
 ## -----------------------------------------------------------------------------
-#| warning: false
-#| message: false
 library(tidyverse) 
 library(INLA) 
 library(ggplot2)
@@ -155,17 +217,14 @@ greatLakes.df = data.frame(as.matrix(greatLakes),
 
 
 
-## -----------------------------------------------------------------------------
-#| echo: false
-#| fig-align: center
-#| fig-width: 6
-#| fig-height: 5
-
-
 greatLakes.df %>%
-  ggplot(aes(x=year,y=height)) + 
+  ggplot(aes(x = year, y = height, color = Lakes)) +
   geom_point() +
-  facet_wrap(~Lakes,scales="free")
+  facet_wrap(~ Lakes, scales = "free_y") +
+  theme_bw() +
+  theme(legend.position = "none")+
+  scale_color_brewer(palette = "Set1")
+
 
 
 
@@ -175,8 +234,50 @@ greatLakes.df$t.idx <- greatLakes.df$year-1917
 Erie.df = greatLakes.df %>% filter(Lakes == "Erie")
 
 
+# Fitting an AR(1) model with inlabru
+
+# Fit an AR(1) model to the Erie lake data using inlabru, 
+#then plot the model fitted values showing 95% credible intervals.
+
+# Model components
+cmp =  ~ -1 + alpha(1) + ut(t.idx,model = "ar1")
+# Model formula
+formula = height ~ alpha + ut
 
 
+# Observational model
+lik =  bru_obs(formula = height   ~.,
+               family = "gaussian",
+               data = Erie.df )
+
+# fit the model
+fit.Erie_ar1 = bru(cmp, lik)
+
+## -----------------------------------------------------------------------------
+pred_forecast_lake = predict(fit.Erie_ar1, Erie.df, ~ alpha + ut)
+
+
+p4= ggplot(pred_forecast_lake, aes(y=mean,x=year))+
+  geom_line()+
+  geom_ribbon(aes(x = year, y = mean, 
+                  ymin = q0.025, 
+                  ymax = q0.975),
+              alpha = 0.5,
+              col="lightblue",
+              fill="lightblue") +
+  theme_bw()+
+  geom_point(aes(y=height, x=year))
+p4
+
+
+# Are there any issues with the fitted model, 
+# and if so, how do you think we should address them?
+#   
+# Answer
+# It is clear that the model overfits the data, 
+# leading to poor predictive performance. 
+# Thus, we need to introduce some prior information on the what 
+# we expect the variation of the process to be.
 
 ## -----------------------------------------------------------------------------
 pc_prior <- list(theta = list(prior = "pc.prec", param = c(1, 0.01)),
@@ -198,59 +299,180 @@ lik =  bru_obs(formula = height  ~.,
             control.family = list(hyper = prec.tau_e))
 
 # fit the model
-fit.Erie_ar1 = bru(cmp, lik)
+fit.Erie_ar2 = bru(cmp, lik)
 
 
+# Model predictions
+
+pred_forecast_lake_2 = predict(fit.Erie_ar2, Erie.df, ~ alpha + ut)
 
 
+p5 <- ggplot(pred_forecast_lake_2, aes(y=mean,x=year))+
+  geom_line()+
+  geom_ribbon(aes(x = year, y = mean, 
+                  ymin = q0.025, 
+                  ymax = q0.975),
+              alpha = 0.5,
+              col="lightgreen",
+              fill="lightgreen") +
+  theme_bw()+
+  geom_point(aes(y=height, x=year))
+p5
 
+
+# with diferente priors
 
 ## -----------------------------------------------------------------------------
-
-pc_prior <- list(theta = list(prior = "pc.prec", param = c(1, 0.01))) 
+pc_prior <- list(theta = list(prior = "pc.prec", param = c(1, 0.1)),
+                 rho = list(prior = "pc.cor0", param = c(0.3, 0.1))) 
 
 prec.tau_e <- list(prec = list(prior = "loggamma",   # prior name
-                             param = c(1, 1))) # prior values
+                               param = c(2, 2))) # prior values
+
+# Model components
+cmp =  ~ -1 + alpha(1) + ut(t.idx, model = "ar1",  hyper = pc_prior)
 
 
+# Model formula
+formula = height ~ alpha + ut
+
+
+# Observational model
+lik =  bru_obs(formula = height  ~.,
+               family = "gaussian",
+               data = Erie.df,
+               control.family = list(hyper = prec.tau_e))
+
+# fit the model
+fit.Erie_ar3 = bru(cmp, lik)
+
+
+# Model predictions
+
+pred_forecast_lake_3 = predict(fit.Erie_ar3, Erie.df, ~ alpha + ut)
+
+
+p6 <- ggplot(pred_forecast_lake_3, aes(y=mean,x=year))+
+  geom_line()+
+  geom_ribbon(aes(x = year, y = mean, 
+                  ymin = q0.025, 
+                  ymax = q0.975),
+              alpha = 0.5,
+              col="tomato",
+              fill="tomato") +
+  theme_bw()+
+  geom_point(aes(y=height, x=year))
+
+# with diferente priors
 
 ## -----------------------------------------------------------------------------
+pc_prior <- list(theta = list(prior = "pc.prec", param = c(0, 1)),
+                 rho = list(prior = "pc.cor0", param = c(0.1, 3))) 
+
+prec.tau_e <- list(prec = list(prior = "loggamma",   # prior name
+                               param = c(2, 2))) # prior values
+
+# Model components
 cmp_rw =  ~ -1 + alpha(1) + 
   ut(t.idx ,
      constr=FALSE,
      model = "rw1",
      hyper=pc_prior,
      scale.model = TRUE)
+# Model formula
+formula = height ~ alpha + ut
 
+
+# Observational model
+lik =  bru_obs(formula = height  ~.,
+               family = "gaussian",
+               data = Erie.df,
+               control.family = list(hyper = prec.tau_e))
+
+# fit the model
+fit.Erie_ar4 = bru(cmp, lik)
+
+
+# Model predictions
+
+pred_forecast_lake_4 = predict(fit.Erie_ar4, Erie.df, ~ alpha + ut)
+
+
+p7 <- ggplot(pred_forecast_lake_4, aes(y=mean,x=year))+
+  geom_line()+
+  geom_ribbon(aes(x = year, y = mean, 
+                  ymin = q0.025, 
+                  ymax = q0.975),
+              alpha = 0.5,
+              col="grey",
+              fill="grey") +
+  theme_bw()+
+  geom_point(aes(y=height, x=year))
+
+
+## with RW
+
+# with diferente priors
 
 ## -----------------------------------------------------------------------------
 
+pc_prior <- list(theta = list(prior = "pc.prec", param = c(1, 0.01)),
+                 rho = list(prior = "pc.cor0", param = c(0.5, 0.3))) 
+
+prec.tau_e <- list(prec = list(prior = "loggamma",   # prior name
+                               param = c(1, 10))) # prior values
+
+# Model components
+cmp_rw =  ~ -1 + alpha(1) + 
+  ut(t.idx ,
+     constr=FALSE,
+     model = "rw1",
+     hyper=pc_prior,
+     scale.model = TRUE)
 # Model formula
 formula = height ~ alpha + ut
 # Observational model
 lik =  bru_obs(formula = height  ~.,
-            family = "gaussian",
-            data = Erie.df,
-            control.family = list(hyper = prec.tau_e))
+               family = "gaussian",
+               data = Erie.df,
+               control.family = list(hyper = prec.tau_e))
 # fit the model
 fit.Erie_rw1 = bru(cmp_rw, lik)
+
 # Model predictions
-pred_rw1.Erie = predict(fit.Erie_rw1, Erie.df, ~ alpha + ut)
+
+pred_forecast_lake_4 = predict(fit.Erie_ar4, Erie.df, ~ alpha + ut)
 
 
+p7 <- ggplot(pred_forecast_lake_4, aes(y=mean,x=year))+
+  geom_line()+
+  geom_ribbon(aes(x = year, y = mean, 
+                  ymin = q0.025, 
+                  ymax = q0.975),
+              alpha = 0.5,
+              col="grey",
+              fill="grey") +
+  theme_bw()+
+  geom_point(aes(y=height, x=year))
+
+ggarrange(p4 + ggtitle("AR1 without PC priors"),
+          p5 + ggtitle("AR1 with PC priors"),
+          p6 + ggtitle("AR1 with different PC priors"),
+          p7 + ggtitle("AR1 with different PC priors 2"),
+          ncol=1)
+
+# how comare models?
+# we can use DIC, WAIC, CPO, etc.
+
+# Group-level effects
+
+# Now we will model the height water levels for all four lakes 
+# by grouping the random effects. This will allow a within-lakes 
+# correlation to be included. In the next example, we allow for 
+# correlated effects using an ar1 model for the years and iid random effects on the lakes. 
+# First we create a lakes id and set the priors for our model:
 
 ## -----------------------------------------------------------------------------
-#| echo: false
-#| fig-align: center
-#| fig-width: 4
-#| fig-height: 4
-
-ggplot(pred_rw1.Erie,aes(y=mean,x=year))+
-  geom_line()+
-    geom_ribbon(aes(x = year, y = mean, ymin = q0.025, ymax = q0.975),
-                alpha = 0.5) +
-  geom_point(aes(y=height,x=year))
-
 
 
 
@@ -272,9 +494,8 @@ cmp =  ~ -1 + alpha(1) + ut(year,model = "ar1",
                             hyper = pc_prior,
                             group =lake_id,
                             control.group = 
-                            list(model = "iid", 
-                                 scale.model = TRUE))
-
+                              list(model = "iid", 
+                                   scale.model = TRUE))
 
 ## -----------------------------------------------------------------------------
 # Model formula
@@ -296,25 +517,22 @@ pred_ar1.all = predict(fit.all_lakes_ar1, greatLakes.df, ~ alpha + ut)
 
 
 ## -----------------------------------------------------------------------------
-ggplot(pred_ar1.all,aes(y=mean,x=year))+
+ggplot(pred_ar1.all,
+       aes(y=mean,x=year, color=Lakes))+
   geom_line()+
-    geom_ribbon(aes(x = year, y = mean, ymin = q0.025, ymax = q0.975),
-                alpha = 0.5) +
-  geom_point(aes(y=height,x=year)) + facet_wrap(~Lakes,scales = "free")
+    geom_ribbon(aes(x = year, 
+                    y = mean, 
+                    ymin = q0.025, 
+                    ymax = q0.975),
+                alpha = 0.5,
+                color="lightgrey",
+                fill= "lightgrey") +
+  geom_point(aes(y=height,x=year)) + 
+  facet_wrap(~Lakes,scales = "free")+
+  theme_bw()
 
 
-
-
-## ----child="practicals/Tokyo_rainfall_ex.qmd"---------------------------------
-
-## -----------------------------------------------------------------------------
-#| message: false
-#| warning: false
-
-library(INLA)
-library(inlabru)
-library(ggplot2)
-library(tidyr)
+# Temporal models for non-Gaussian data
 
 
 data("Tokyo")
