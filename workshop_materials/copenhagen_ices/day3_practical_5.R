@@ -1,33 +1,31 @@
 ## ----child="practicals/Areal_ex.qmd"------------------------------------------
 
-## -----------------------------------------------------------------------------
-#| echo: false
-
 # load webexercises library for tasks and questions (just for a preview - the practical compiler should take care of this when compiling multiple excercises)
 library(webexercises)
-
-
-
-## -----------------------------------------------------------------------------
 library(dplyr)
 library(INLA)
 library(ggplot2)
 library(patchwork)
 library(inlabru)   
 library(mapview)
-
-# load some libraries to generate nice map plots
 library(scico)
-
-
-## -----------------------------------------------------------------------------
-
 library(CARBayesdata)
+library(spdep)
+library(egg)
+library(sf)
+library(terra)
+library(mapview)
+library(tidyterra)
+library(sdmTMB)
+
+
+#We consider data on respiratory hospitalizations for Greater Glasgow and Clyde in 2007.
+#The data are available from the CARBayesdata R Package:
 
 data(pollutionhealthdata)
 data(GGHB.IZ)
-
-
+class(pollutionhealthdata)
+class(GGHB.IZ)
 
 
 ## -----------------------------------------------------------------------------
@@ -38,99 +36,139 @@ resp_cases <- merge(GGHB.IZ %>%
   filter(year == 2007) %>%
     mutate(SMR = observed/expected)
 
-ggplot() + geom_sf(data = resp_cases, aes(fill = SMR)) + scale_fill_scico(direction = -1)
+m1 <- ggplot() + 
+  geom_sf(data = resp_cases, aes(fill = SMR)) + 
+  scale_fill_scico(direction = -1)+
+  theme_minimal() +
+  scale_fill_scico(palette = "vik")
+m1
 
-
-
+# Then we compute the adjacency matrix using the functions poly2nb() and nb2mat() in the spdep library.
+# We then convert the adjacency matrix into the precision matrix  of the CAR model. 
+# Remember this matrix has, on the diagonal the number of e
 
 ## -----------------------------------------------------------------------------
-library(spdep)
 
-W.nb <- poly2nb(GGHB.IZ,queen = TRUE)
+
+W.nb <- poly2nb(GGHB.IZ,
+                queen = FALSE)
 R <- nb2mat(W.nb, style = "B", zero.policy = TRUE)
 
 diag = apply(R,1,sum)
 Q = -R
 diag(Q) = diag
 
-
-## -----------------------------------------------------------------------------
-#| echo: true
-#| eval: false
-
-# cmp = ~ Intercept(1) + space(...) + iid(...)
-# 
-# formula = ...
-# 
-# 
-# lik = bru_obs(formula = formula,
-#               family = ...,
-#               E = ...,
-#               data = ...)
-# 
-# fit = bru(cmp, lik)
-# 
+plot(diag)
 
 
-## -----------------------------------------------------------------------------
+cmp = ~ Intercept(1) + space(space, model = "besag", graph = Q)+
+  iid(space, model = "iid")
+formula = observed ~ Intercept + 
+  space + 
+  iid
 
-cmp = ~ Intercept(1) + space(space, model = "besag", graph = Q) + iid(space, model = "iid")
-
-formula = observed ~ Intercept + space + iid
-
-lik = bru_obs(formula = formula, 
+# model likelihood
+lik =  bru_obs(formula = formula, 
               family = "poisson",
               E = expected,
               data = resp_cases)
 
+
 fit = bru(cmp, lik)
 
+# saber el valor de beta
+summary(fit)
+# plot the spatial effect
+plot(fit, "space") +
+  scale_color_scico(direction = -1) +
+  ggtitle("spatial effect")+
+  theme_bw()
 
 
-## -----------------------------------------------------------------------------
-#| echo: true
-#| eval: false
+# made prediction
 
-# pred = predict(fit, resp_cases, ~data.frame(log_risk = ...,
-#                                              risk = exp(...),
-#                                              cases = ...
-#                                              ),
-#                n.samples = 1000)
-# 
+pred <- predict(fit, resp_cases, 
+                ~ data.frame(log_risk = Intercept + space,
+                             risk = exp(Intercept + space),
+                             cases = expected * exp(Intercept + space)
+                             ),
+                n.samples = 1000)
 
-
-## -----------------------------------------------------------------------------
-
-# produce predictions
-pred = predict(fit, resp_cases, ~data.frame(log_risk = Intercept + space,
-                                             risk = exp(Intercept + space),
-                                             cases = expected * exp(Intercept + space)
-                                             ),
-               n.samples = 1000)
 # plot the predictions
 
-p1 = ggplot() + geom_sf(data = pred$log_risk, aes(fill = mean)) + scale_fill_scico(direction = -1) + ggtitle("mean log risk")
-p2 = ggplot() + geom_sf(data = pred$log_risk, aes(fill = sd)) + scale_fill_scico(direction = -1) + ggtitle("sd log risk")
-p1 + p2
+p1 = ggplot() + 
+  geom_sf(data = pred$log_risk, aes(fill = mean)) + 
+  scale_fill_scico(direction = -1,
+                   palette = "nuuk") + 
+  ggtitle("mean log risk")
+p2 = ggplot() + 
+  geom_sf(data = pred$log_risk, aes(fill = sd)) + 
+  scale_fill_scico(direction = -1,
+                   palette = "nuuk") +
+  ggtitle("sd log risk")
+p3 = ggplot() + 
+  geom_sf(data = pred$risk, aes(fill = mean)) + 
+  scale_fill_scico(direction = -1,
+                   palette = "vik") + 
+  ggtitle("mean  risk")
+p4 = ggplot() + 
+  geom_sf(data = pred$risk, aes(fill = sd)) + 
+  scale_fill_scico(direction = -1,
+                   palette = "vik") + 
+  ggtitle("sd  risk")
+p5 = ggplot() + 
+  geom_sf(data = pred$cases, aes(fill = mean)) + 
+  scale_fill_scico(direction = -1,
+                   palette = "imola")+ 
+  ggtitle("mean  expected counts")
+p6 = ggplot() + 
+  geom_sf(data = pred$cases, aes(fill = sd)) + 
+  scale_fill_scico(direction = -1,
+                   palette = "imola")+ 
+  ggtitle("sd  expected counts")
 
-p1 = ggplot() + geom_sf(data = pred$risk, aes(fill = mean)) + scale_fill_scico(direction = -1) + ggtitle("mean  risk")
-p2 = ggplot() + geom_sf(data = pred$risk, aes(fill = sd)) + scale_fill_scico(direction = -1) + ggtitle("sd  risk")
-p1 + p2
-
-p1 = ggplot() + geom_sf(data = pred$cases, aes(fill = mean)) + scale_fill_scico(direction = -1)+ ggtitle("mean  expected counts")
-p2 = ggplot() + geom_sf(data = pred$cases, aes(fill = sd)) + scale_fill_scico(direction = -1)+ ggtitle("sd  expected counts")
-p1 + p2
-
+ggarrange(p1, p2, p3, p4, p5, p6,
+              ncol = 2, nrow = 3)
 
 
 ## -----------------------------------------------------------------------------
-pred$cases %>% ggplot() + geom_point(aes(observed, mean)) + 
-  geom_errorbar(aes(observed, ymin = q0.025, ymax = q0.975)) +
-  geom_abline(intercept = 0, slope = 1)
+pre1 <- pred$cases %>% 
+  ggplot() + 
+  geom_point(aes(observed, mean), col= "red") + 
+  geom_errorbar(aes(observed, 
+                    ymin = q0.025, 
+                    ymax = q0.975)) +
+  geom_abline(intercept = 0, 
+              slope = 1)+
+  theme_bw()
 
 
+pre2 <- pred$risk %>% 
+  ggplot() + 
+  geom_point(aes(observed, mean), col= "blue") + 
+  geom_errorbar(aes(observed, 
+                    ymin = q0.025, 
+                    ymax = q0.975)) +
+  geom_abline(intercept = -1, 
+              slope = 1)+
+  theme_bw()
 
+pre3 <- pred$log_risk %>% 
+  ggplot() + 
+  geom_point(aes(observed, mean), col = "green") + 
+  geom_errorbar(aes(observed, 
+                    ymin = q0.025, 
+                    ymax = q0.975)) +
+  geom_abline(intercept = -1, 
+              slope = 1)+
+  theme_bw()
+
+ggarrange(pre1, pre2, pre3,
+              ncol = 1, nrow = 3)
 ## -----------------------------------------------------------------------------
+# Getting prediction densities
+
+
 
 # simulate 1000 realizations of E_i\lambda_i
 expected_counts = generate(fit, resp_cases, 
@@ -150,49 +188,94 @@ pred_counts = data.frame(observed = resp_cases$observed,
                          vv = apply(sim_counts,1,var)
                          )
 
-
+# Plot the observations against the predicted new counts and the predicted expected counts. Include the uncertainty and compare the two.
+pre4 <- ggplot() + 
+  geom_point(data= pred_counts, aes(observed, m), color= "black") + 
+  geom_errorbar(data =pred_counts, aes(pred_counts$observed,
+                    ymin = q1, 
+                    ymax = q2,
+                    color = "black")) +
+  geom_point(data= pred$cases,
+             aes(observed, mean, color= "red")) + 
+  geom_errorbar(data= pred$cases, 
+                aes(observed, 
+                    ymin = q0.025, 
+                    ymax = q0.975)) +
+  geom_abline(intercept = 0, 
+              slope = 1)+
+  theme_bw()
+pre4
 
 ## ----child="practicals/Geostat_ex.qmd"----------------------------------------
+## Linear Effect
+cmp = ~ Intercept(1) + 
+  space(space, model = "besag", graph = Q) + 
+  iid(space, model = "iid") +
+  cov(pm10, model = "linear")
 
+formula = observed ~ Intercept + space + iid + cov
+
+lik = bru_obs(formula = formula, 
+              family = "poisson",
+              E = expected,
+              data = resp_cases)
+
+fit_lin = bru(cmp, lik)
+# effect of the covaraite
+# fit_lin$summary.fixed
+
+## Linear Effect
+resp_cases$pm10_group=  inla.group(resp_cases$pm10)
+cmp = ~ Intercept(1) + space(space, model = "besag", graph = Q) +
+  iid(space, model = "iid") +
+  cov(pm10_group, model = "rw2")
+
+formula = observed ~ Intercept + space + iid + cov
+
+lik = bru_obs(formula = formula, 
+              family = "poisson",
+              E = expected,
+              data = resp_cases)
+
+fit_smooth = bru(cmp, lik)
+
+#check the smooth effect of the covariate
+fit_smooth$summary.random$cov %>% 
+  ggplot() + 
+  geom_line(aes(ID,mean)) +
+  geom_ribbon(aes(ID, 
+                  ymin =`0.025quant`, 
+                  ymax = `0.975quant`), 
+              alpha = 0.5)+
+  theme_bw()
 ## -----------------------------------------------------------------------------
-#| warning: false
-#| message: false
+# Geostatistics
+# 
+# In this practical we are going to fit a geostatistical model. We will:
+#   
+#   Learn how to fit a geostatistical model in inlabru
+# 
+# Learn how to build a mesh for the SPDE representation
+# 
+# Learn how to add spatial covariates to the model
+# 
+# Learn how to do predictions
+# 
+# Learn how to simulate from the fitted model
+# 
 
-
-library(dplyr)
-library(INLA)
-library(inlabru) 
-library(sf)
-library(terra)
-
-
-# load some libraries to generate nice map plots
-library(scico)
-library(ggplot2)
-library(patchwork)
-library(mapview)
-library(tidyterra)
-
-
-
-## -----------------------------------------------------------------------------
-#| message: false
-#| warning: false
-library(sdmTMB)
-
-pcod_df = sdmTMB::pcod %>% filter(year==2003)
+pcod_df = sdmTMB::pcod %>% 
+  filter(year==2003)
 qcs_grid = sdmTMB::qcs_grid
 
 
-
-## -----------------------------------------------------------------------------
-#| message: false
-#| warning: false
-#| 
-pcod_sf =   st_as_sf(pcod_df, coords = c("lon","lat"), crs = 4326)
+pcod_sf =   st_as_sf(pcod_df, 
+                     coords = c("lon",
+                                "lat"),
+                     crs = 4326)
 pcod_sf = st_transform(pcod_sf,
-crs = "+proj=utm +zone=9 +datum=WGS84 +no_defs +type=crs +units=km" )
-
+                       crs = "+proj=utm +zone=9 +datum=WGS84 +no_defs +type=crs +units=km" )
+st_crs(pcod_sf)$units
 
 ## -----------------------------------------------------------------------------
 
@@ -204,23 +287,38 @@ crs(depth_r) <- crs(pcod_sf)
 ## -----------------------------------------------------------------------------
 
 ggplot()+ 
-  geom_spatraster(data=depth_r$depth)+
-  geom_sf(data=pcod_sf,aes(color=factor(present))) +
+  geom_spatraster(data=depth_r$depth_scaled)+
+  geom_sf(data=pcod_sf,aes(color=factor(present)),
+          shape=21) +
     scale_color_manual(name="Occupancy status for the Pacific Cod",
-                     values = c("black","orange"),
+                     values = c("orange","black"),
                      labels= c("Absence","Presence"))+
   scale_fill_scico(name = "Depth",
-                   palette = "nuuk",
-                   na.value = "transparent" ) + xlab("") + ylab("")
+                   palette = "vik",
+                   na.value = "transparent" ) +
+  xlab("") + ylab("")+
+  theme_bw()
 
 
-
-## -----------------------------------------------------------------------------
+# General guidelines for creating the mesh
+# 
+# Create triangulation meshes with fm_mesh_2d()
+# Move undesired boundary effects away from the domain of interest by extending to a smooth external boundary
+# Use a coarser resolution in the extension to reduce computational cost (max.edge=c(inner, outer))
+# Use a fine resolution (subject to available computational resources) for the domain of interest (inner correlation range) and filter out small input point clusters (0 < cutoff < inner)
+# Coastlines and similar can be added to the domain specification in fm_mesh_2d() through the boundary argument.
+# ## -----------------------------------------------------------------------------
 
 mesh = fm_mesh_2d(loc = pcod_sf,           # Build the mesh
                   max.edge = c(10,20),     # The largest allowed triangle edge length.
                   offset = c(5,50))       # The automatic extension distance
-ggplot() + gg(mesh) + geom_sf(data= pcod_sf, aes(color = factor(present)), size = 0.1) + xlab("") + ylab("")
+ggplot() + 
+  gg(mesh) + 
+  geom_sf(data= pcod_sf, 
+          aes(color = factor(present)), 
+          size = 0.5) +
+  xlab("") + 
+  ylab("")
 
 
 
@@ -231,14 +329,16 @@ mesh = fm_mesh_2d(loc = pcod_sf,           # Build the mesh
                   cutoff = 2,
                   max.edge = c(10,20),     # The largest allowed triangle edge length.
                   offset = c(5,50))       # The automatic extension distance
-ggplot() + gg(mesh) + geom_sf(data= pcod_sf, aes(color = factor(present)), size = 0.1) + xlab("") + ylab("")
+ggplot() + 
+  gg(mesh) + 
+  geom_sf(data= pcod_sf, 
+          aes(color = factor(present)), 
+          size = 0.1) + xlab("") + ylab("")
 
 
 
-## -----------------------------------------------------------------------------
-#| eval: false
 
-# ?fm_mesh_2d
+?fm_mesh_2d
 
 
 ## -----------------------------------------------------------------------------
@@ -266,6 +366,7 @@ dens_prior_sd = function(sigma_0, p_sigma)
   return(data.frame(x = sigma, y = dens_sigma))
 }
 
+#Here are some alternatives for defining priors for our model
 
 ## -----------------------------------------------------------------------------
 spde_model1 =  inla.spde2.pcmatern(mesh,
@@ -280,23 +381,28 @@ spde_model3 =  inla.spde2.pcmatern(mesh,
 
 
 ## -----------------------------------------------------------------------------
-ggplot() + 
+range <- ggplot() + 
   geom_line(data = dens_prior_range(30,.5), aes(x,y, color = "model1")) +
   geom_line(data = dens_prior_range(1000,.5), aes(x,y, color = "model2")) +
-  geom_line(data = dens_prior_range(100,.5), aes(x,y, color = "model3")) 
+  geom_line(data = dens_prior_range(100,.5), aes(x,y, color = "model3")) +
+  theme_bw()
 
 
 ## -----------------------------------------------------------------------------
-ggplot() + 
+sd <- ggplot() + 
   geom_line(data = dens_prior_sd(1,.5), aes(x,y, color = "model1")) +
   geom_line(data = dens_prior_sd(10,.5), aes(x,y, color = "model2")) +
-  geom_line(data = dens_prior_sd(.1,.5), aes(x,y, color = "model3")) 
+  geom_line(data = dens_prior_sd(.1,.5), aes(x,y, color = "model3")) +
+  theme_bw()
 
-
+ggarrange(range, sd, ncol = 1)
 ## -----------------------------------------------------------------------------
+
+#3. Define the components of the linear predictor
 
 cmp = ~ Intercept(1) + space(geometry, model = spde_model3)
 
+# 4. Define the observation model
 
 ## -----------------------------------------------------------------------------
 
@@ -307,7 +413,7 @@ lik = bru_obs(formula = formula,
               family = "binomial")
 
 
-
+# run model
 ## -----------------------------------------------------------------------------
 fit1 = bru(cmp,lik)
 
@@ -326,12 +432,60 @@ preds = predict(fit1, pxl, ~data.frame(spatial = space,
 
 
 ## -----------------------------------------------------------------------------
-ggplot() + geom_sf(data = preds$spatial,aes(color = mean)) + scale_color_scico() + ggtitle("Posterior mean")
+premean <- ggplot() + 
+  geom_sf(data = preds$spatial,aes(color = mean)) +
+  scale_color_scico(palette = "navia") +
+  ggtitle("Posterior mean")+
+  theme_bw()
 
-ggplot() + geom_sf(data = preds$spatial,aes(color = sd)) + scale_color_scico() + ggtitle("Posterior sd")
+presd <- ggplot() + 
+  geom_sf(data = preds$spatial,aes(color = sd)) + 
+  scale_color_scico(palette = "navia") + 
+  ggtitle("Posterior sd")+
+  theme_bw()
+
+ggarrange(premean, presd, ncol = 2)
+
+
+
+# Plot the posterior densities for the range  and the standard deviation  
+# alog with the prior for both parameters.
+# Extract marginal for the range
+
+post1 <- ggplot() + 
+  geom_line(data = fit1$marginals.hyperpar$`Range for space`,
+            aes(x,y, color = "Posterior")) +
+  geom_line(data = dens_prior_range(100,.5),
+            aes(x,y, color = "Prior"))+
+  theme_bw()
+
+
+post2 <- ggplot() + 
+  geom_line(data = fit1$marginals.hyperpar$`Stdev for space`,
+            aes(x,y, color = "Posterior")) +
+  geom_line(data = dens_prior_sd(1,.5), aes(x,y, color = "Prior")) + 
+  theme_bw()
+
+ggarrange(post1, post2, 
+          ncol = 2)
+
+
+# Spatial prediction
+
+#We now want to extract the estimated posterior mean and sd of spatial GF. 
+#To do this we first need to define a grid of points where we want to predict. 
+#We do this using the function fm_pixel(), which creates a regular grid of points covering the mesh
+
+
 
 
 ## -----------------------------------------------------------------------------
+#  Note The posterior sd is lowest at the observation points. Note how the posterior sd is inflated around the border, this is the “border effect” due to the SPDE representation.
+
+#Instead of predicting over a grid covering the whole mesh, 
+#we can limit our predictions to the points where the covariate is defined.
+# We can do this by defining a sf object using coordinates in the object depth_r.
+
 pxl1 = data.frame(crds(depth_r), 
                   as.data.frame(depth_r$depth)) %>% 
        filter(!is.na(depth)) %>%
@@ -352,8 +506,10 @@ pp %>% select(-depth) %>%
     ggplot() + 
       geom_sf(aes(color = value)) +
       facet_wrap(.~name) +
-        scale_color_scico(direction = -1) +
-        ggtitle("Sample from the fitted model")
+        scale_color_scico(direction = -1,
+                          palette ="vik") +
+        ggtitle("Sample from the fitted model")+
+  theme_bw()
 
 
 

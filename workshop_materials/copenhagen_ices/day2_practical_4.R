@@ -219,11 +219,13 @@ ggplot()+
 
 
 ## -----------------------------------------------------------------------------
-elevation_r <- elevation_r %>% scale()
+elevation_r <- elevation_r %>% 
+  scale()
 
+st_crs(elevation_r)
 
 ## -----------------------------------------------------------------------------
-elev_CNP <- terra::crop(elevation_r,shp_SGC_2,mask=T)
+elev_CNP <- terra::crop(elevation_r,shp_SGC,mask=T)
 plot(elev_CNP)
 
 ggplot()+
@@ -238,4 +240,9 @@ ggplot()+
   theme_bw()
 
 
-
+ggplot()+ 
+  tidyterra::geom_spatraster(data=elev_CNP)+
+  geom_sf(data=ringlett_CNP)+
+  scale_fill_scico(name = "Elevation scaled",
+                   palette = "devon",
+                   na.value = "transparent" )
